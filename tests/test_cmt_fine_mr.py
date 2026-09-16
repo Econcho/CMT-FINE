@@ -41,6 +41,13 @@ class MomentPyramidTest(unittest.TestCase):
         direct = F.conv2d(evidence, cmt._moment_kernels(8), stride=8)
         torch.testing.assert_close(pyramid["levels"][8], direct, rtol=1e-5, atol=1e-4)
 
+    def test_moment_pyramid_stays_fp32_under_autocast(self):
+        evidence = torch.rand(1, 1, 64, 64)
+        with torch.autocast(device_type="cpu", dtype=torch.bfloat16):
+            pyramid = cmt.MomentPyramid(base_stride=4, num_levels=4)(evidence)
+        self.assertEqual(pyramid["levels"][4].dtype, torch.float32)
+        self.assertEqual(pyramid["levels"][32].dtype, torch.float32)
+
     def test_first_order_reader_tracks_a_one_pixel_shift(self):
         evidence0 = torch.zeros(1, 1, 32, 32)
         evidence1 = torch.zeros_like(evidence0)

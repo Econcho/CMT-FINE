@@ -8,6 +8,7 @@ and applies a vectorized soft KL projection to D-FINE's four edge distributions.
 """
 
 import math
+from contextlib import nullcontext
 
 import torch
 import torch.nn as nn
@@ -17,6 +18,13 @@ from ...core import register
 
 
 __all__ = ["CMTMomentRefiner"]
+
+
+def _autocast_disabled(device):
+    """Disable CUDA/CPU autocast for numerically sensitive moment operations."""
+    if device.type in ("cuda", "cpu"):
+        return torch.autocast(device_type=device.type, enabled=False)
+    return nullcontext()
 
 
 class EvidenceEncoder(nn.Module):
@@ -99,22 +107,32 @@ class MomentPyramid(nn.Module):
         )
 
     def forward(self, evidence):
-        original_size = tuple(evidence.shape[-2:])
-        divisor = self.base_stride * (2 ** (self.num_levels - 1))
-        pad_h = (-original_size[0]) % divisor
-        pad_w = (-original_size[1]) % divisor
-        if pad_h or pad_w:
-            evidence = F.pad(evidence, (0, pad_w, 0, pad_h))
+        # ``F.conv2d`` is autocast to FP16 even when its input was explicitly
+        # converted to float. Keep all absolute and second-order moments in
+        # FP32; otherwise sums such as x^2*m overflow on ordinary 640 inputs.
+        with _autocast_disabled(evidence.device):
+            original_size = tuple(evidence.shape[-2:])
+            divisor = self.base_stride * (2 ** (self.num_levels - 1))
+            pad_h = (-original_size[0]) % divisor
+            pad_w = (-original_size[1]) % divisor
+            if pad_h or pad_w:
+                evidence = F.pad(evidence, (0, pad_w, 0, pad_h))
 
-        evidence_fp32 = evidence.float()
-        state = F.conv2d(evidence_fp32, self.kernels.to(evidence_fp32), stride=self.base_stride)
-        levels = {self.base_stride: state}
-        stride = self.base_stride
-        for _ in range(1, self.num_levels):
-            state = self._merge_four(state, stride)
-            stride *= 2
-            levels[stride] = state
-        return {"levels": levels, "image_size": original_size, "padded_size": evidence.shape[-2:]}
+            evidence_fp32 = evidence.float()
+            state = F.conv2d(
+                evidence_fp32, self.kernels.to(evidence_fp32), stride=self.base_stride
+            )
+            levels = {self.base_stride: state}
+            stride = self.base_stride
+            for _ in range(1, self.num_levels):
+                state = self._merge_four(state, stride)
+                stride *= 2
+                levels[stride] = state
+            return {
+                "levels": levels,
+                "image_size": original_size,
+                "padded_size": evidence.shape[-2:],
+            }
 
 
 class MomentReader(nn.Module):
@@ -175,10 +193,11 @@ class MomentReader(nn.Module):
     def prepare(self, pyramid, moment_order):
         """Cache the invariant integral moment map once per input batch."""
         state = pyramid["levels"][self.base_stride]
-        pyramid["reader_moment_order"] = int(moment_order)
-        pyramid["reader_integral"] = self._integral_image(
-            self._global_raw_moments(state, moment_order)
-        )
+        with _autocast_disabled(state.device):
+            pyramid["reader_moment_order"] = int(moment_order)
+            pyramid["reader_integral"] = self._integral_image(
+                self._global_raw_moments(state, moment_order)
+            )
         return pyramid
 
     def forward(self, pyramid, reference_boxes, moment_order=2):
@@ -324,6 +343,20 @@ class MomentDistributionProjector(nn.Module):
     ):
         if self.strength == 0.0:
             return logits
+        with _autocast_disabled(logits.device):
+            return self._forward_fp32(
+                logits,
+                reference_boxes,
+                moment_center_px,
+                gate,
+                support,
+                image_size,
+                reg_scale,
+            )
+
+    def _forward_fp32(
+        self, logits, reference_boxes, moment_center_px, gate, support, image_size, reg_scale
+    ):
         bins = self.reg_max + 1
         if logits.shape[-1] != 4 * bins:
             raise ValueError(f"Expected {4 * bins} corner logits, got {logits.shape[-1]}")

@@ -38,6 +38,8 @@ flowchart TD
 
 CMT 原始状态为 [m, px, py, Qxx, Qxy, Qyy]。M4 由固定卷积核一次生成，M8/M16/M32 用换原点恒等式合并。原始矩始终使用 FP32；可学习门和 decoder 保持官方 AMP 行为。
 
+当训练命令启用 CUDA AMP 时，`MomentPyramid`、`MomentReader` 的积分矩图和 `MomentDistributionProjector` 会在各自的数值敏感区间局部禁用 autocast。原因是 CUDA autocast 会把固定矩卷积自动降为 FP16，二阶项 `x²m` 在 640 输入坐标范围内容易溢出，进而把矩中心、门控和预测框传播为 NaN，最终在 Hungarian matcher 的 GIoU 检查处触发断言。局部使用 FP32 不会关闭主干、encoder 或 decoder 的 AMP；对应行为由 `test_moment_pyramid_stays_fp32_under_autocast` 回归测试保护。
+
 ## 3. 新增和改动文件
 
 | 文件 | 作用 |
@@ -184,7 +186,7 @@ python -m unittest discover -s tests -p "test_*.py" -v
 - query 窗口通过积分矩图读取，不重复采样整张高分辨率特征。
 - Newton 求解完全批量化，复杂度约为 O(B×Q×L×K×I)。
 - 仅保存最后层 CMT 诊断用于辅助 loss。
-- 原始矩和求解使用 FP32；EvidenceEncoder 与 decoder 可使用 AMP。
+- 原始矩、积分图和 Newton 求解在局部禁用 autocast 并使用 FP32；EvidenceEncoder 与 decoder 仍可使用 AMP。
 - baseline 不创建证据图；零投影强度跳过求解。
 - HGNetV2-S 示例配置中的 CMT 分支有 56,428 个可训练参数；该数值不含官方 D-FINE 主体，也不代表实际 FLOPs。
 
