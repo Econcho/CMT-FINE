@@ -385,6 +385,8 @@ class TransformerDecoder(nn.Module):
         attn_mask=None,
         memory_mask=None,
         dn_meta=None,
+        cmt=None,
+        cmt_state=None,
     ):
         output = target
         output_detach = pred_corners_undetach = 0
@@ -394,6 +396,7 @@ class TransformerDecoder(nn.Module):
         dec_out_logits = []
         dec_out_pred_corners = []
         dec_out_refs = []
+        dec_out_cmt = None
         if not hasattr(self, "project"):
             project = weighting_function(self.reg_max, up, reg_scale)
         else:
@@ -426,18 +429,35 @@ class TransformerDecoder(nn.Module):
 
             # Refine bounding box corners using FDR, integrating previous layer's corrections
             pred_corners = bbox_head[i](output + output_detach) + pred_corners_undetach
+            cmt_output = None
+            score_query = output
+            if cmt is not None and cmt_state is not None:
+                pred_corners, cmt_output = cmt.refine(
+                    pred_corners,
+                    output,
+                    ref_points_initial,
+                    project,
+                    reg_scale,
+                    cmt_state,
+                    i,
+                    len(self.layers) - 1 if self.training else self.eval_idx,
+                )
+                if cmt_output is not None:
+                    score_query = cmt_output.pop("classification_query")
             inter_ref_bbox = distance2bbox(
                 ref_points_initial, integral(pred_corners, project), reg_scale
             )
 
             if self.training or i == self.eval_idx:
-                scores = score_head[i](output)
+                scores = score_head[i](score_query)
                 # Lqe does not affect the performance here.
                 scores = self.lqe_layers[i](scores, pred_corners)
                 dec_out_logits.append(scores)
                 dec_out_bboxes.append(inter_ref_bbox)
                 dec_out_pred_corners.append(pred_corners)
                 dec_out_refs.append(ref_points_initial)
+                if cmt_output is not None:
+                    dec_out_cmt = cmt_output
 
                 if not self.training:
                     break
@@ -446,6 +466,15 @@ class TransformerDecoder(nn.Module):
             ref_points_detach = inter_ref_bbox.detach()
             output_detach = output.detach()
 
+        if (
+            self.training
+            and cmt is not None
+            and cmt_state is not None
+            and cmt.active
+            and dec_out_cmt is None
+        ):
+            raise ValueError("CMT refine_layers did not select any training decoder layer")
+
         return (
             torch.stack(dec_out_bboxes),
             torch.stack(dec_out_logits),
@@ -453,6 +482,7 @@ class TransformerDecoder(nn.Module):
             torch.stack(dec_out_refs),
             pre_bboxes,
             pre_scores,
+            dec_out_cmt,
         )
 
 
@@ -837,7 +867,7 @@ class DFINETransformer(nn.Module):
 
         return topk_memory, topk_logits, topk_anchors
 
-    def forward(self, feats, targets=None):
+    def forward(self, feats, targets=None, cmt=None, cmt_state=None):
         # input projection and embedding
         memory, spatial_shapes = self._get_encoder_input(feats)
 
@@ -862,7 +892,7 @@ class DFINETransformer(nn.Module):
         )
 
         # decoder
-        out_bboxes, out_logits, out_corners, out_refs, pre_bboxes, pre_logits = self.decoder(
+        out_bboxes, out_logits, out_corners, out_refs, pre_bboxes, pre_logits, out_cmt = self.decoder(
             init_ref_contents,
             init_ref_points_unact,
             memory,
@@ -876,7 +906,11 @@ class DFINETransformer(nn.Module):
             self.reg_scale,
             attn_mask=attn_mask,
             dn_meta=dn_meta,
+            cmt=cmt,
+            cmt_state=cmt_state,
         )
+
+        final_cmt = out_cmt
 
         if self.training and dn_meta is not None:
             dn_pre_logits, pre_logits = torch.split(pre_logits, dn_meta["dn_num_split"], dim=1)
@@ -887,6 +921,22 @@ class DFINETransformer(nn.Module):
             dn_out_corners, out_corners = torch.split(out_corners, dn_meta["dn_num_split"], dim=2)
             dn_out_refs, out_refs = torch.split(out_refs, dn_meta["dn_num_split"], dim=2)
 
+            if final_cmt is not None:
+                normal_cmt = {"image_size": final_cmt["image_size"]}
+                for key in (
+                    "moment_center",
+                    "semantic_center",
+                    "gate",
+                    "gate_logits",
+                    "valid",
+                    "mass",
+                    "scale_weights",
+                ):
+                    _, normal_cmt[key] = torch.split(
+                        final_cmt[key], dn_meta["dn_num_split"], dim=1
+                    )
+                final_cmt = normal_cmt
+
         if self.training:
             out = {
                 "pred_logits": out_logits[-1],
@@ -896,6 +946,8 @@ class DFINETransformer(nn.Module):
                 "up": self.up,
                 "reg_scale": self.reg_scale,
             }
+            if final_cmt is not None:
+                out["cmt"] = final_cmt
         else:
             out = {"pred_logits": out_logits[-1], "pred_boxes": out_bboxes[-1]}
 

@@ -4,6 +4,7 @@ Copyright(c) 2023 lyuwenyu. All Rights Reserved.
 """
 
 from .dfine import DFINE
+from .cmt import CMTMomentRefiner
 from .dfine_criterion import DFINECriterion
 from .dfine_decoder import DFINETransformer
 from .hybrid_encoder import HybridEncoder

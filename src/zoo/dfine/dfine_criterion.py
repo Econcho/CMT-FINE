@@ -7,6 +7,7 @@ Copyright (c) 2023 lyuwenyu. All Rights Reserved.
 """
 
 import copy
+import math
 
 import torch
 import torch.distributed
@@ -230,6 +231,98 @@ class DFINECriterion(nn.Module):
 
         return losses
 
+    @staticmethod
+    def _cmt_center_target(evidence_logits, targets, stride=4):
+        """Create a sparse bilinear center target at the moment-pyramid resolution."""
+        height = math.ceil(evidence_logits.shape[-2] / stride)
+        width = math.ceil(evidence_logits.shape[-1] / stride)
+        target = evidence_logits.new_zeros((len(targets), 1, height, width), dtype=torch.float32)
+        flat_target = target.flatten(2)
+        for batch_index, item in enumerate(targets):
+            boxes = item["boxes"]
+            if boxes.numel() == 0:
+                continue
+            x = boxes[:, 0].float() * width - 0.5
+            y = boxes[:, 1].float() * height - 0.5
+            x0, y0 = x.floor(), y.floor()
+            for offset_x, offset_y in ((0, 0), (1, 0), (0, 1), (1, 1)):
+                xi = (x0 + offset_x).long()
+                yi = (y0 + offset_y).long()
+                weight_x = 1.0 - (x - xi.float()).abs()
+                weight_y = 1.0 - (y - yi.float()).abs()
+                weight = (weight_x * weight_y).clamp_min(0.0)
+                valid = (xi >= 0) & (xi < width) & (yi >= 0) & (yi < height)
+                if valid.any():
+                    index = yi[valid] * width + xi[valid]
+                    flat_target[batch_index, 0].scatter_add_(0, index, weight[valid])
+        return target.clamp_max_(1.0)
+
+    def loss_cmt(self, outputs, targets, indices, num_boxes):
+        """Auxiliary CMT evidence, center, and reliability-gate losses."""
+        if "cmt" not in outputs or "cmt_evidence_logits" not in outputs:
+            return {}
+        cmt = outputs["cmt"]
+        evidence_logits = outputs["cmt_evidence_logits"].float()
+        stride = int(outputs.get("cmt_base_stride", 4))
+        pooled_logits = F.avg_pool2d(
+            evidence_logits, kernel_size=stride, stride=stride, ceil_mode=True
+        )
+        center_target = self._cmt_center_target(evidence_logits, targets, stride=stride)
+        probability = pooled_logits.sigmoid().clamp(1e-6, 1.0 - 1e-6)
+        positive = -center_target * (1.0 - probability).square() * probability.log()
+        negative = (
+            -0.05
+            * (1.0 - center_target)
+            * probability.square()
+            * (1.0 - probability).log()
+        )
+        losses = {"loss_cmt_evidence": (positive + negative).sum() / num_boxes}
+
+        idx = self._get_src_permutation_idx(indices)
+        if idx[0].numel() == 0:
+            # Keep the scale/gate paths in the autograd graph for negative-only
+            # batches so official DDP(find_unused_parameters=False) remains valid.
+            zero = (
+                evidence_logits.sum()
+                + cmt["moment_center"].sum()
+                + cmt["gate"].sum()
+            ) * 0.0
+            losses.update({"loss_cmt_center": zero, "loss_cmt_gate": zero})
+            return losses
+
+        target_boxes = torch.cat([t["boxes"][j] for t, (_, j) in zip(targets, indices)], dim=0)
+        moment_center = cmt["moment_center"][idx].float()
+        semantic_center = cmt["semantic_center"][idx].float()
+        valid = cmt["valid"][idx]
+        image_h, image_w = cmt["image_size"].float()
+        minimum_scale = torch.stack([4.0 / image_w, 4.0 / image_h]).to(target_boxes)
+        normalizer = torch.maximum(target_boxes[:, 2:4].float(), minimum_scale)
+        normalized_moment_error = (moment_center - target_boxes[:, :2].float()) / normalizer
+
+        if valid.any():
+            losses["loss_cmt_center"] = F.smooth_l1_loss(
+                normalized_moment_error[valid],
+                torch.zeros_like(normalized_moment_error[valid]),
+                reduction="sum",
+            ) / valid.sum().clamp_min(1)
+        else:
+            losses["loss_cmt_center"] = moment_center.sum() * 0.0
+
+        gate_logits = cmt["gate_logits"][idx].float().squeeze(-1)
+        if torch.isfinite(gate_logits).all():
+            moment_error = normalized_moment_error.detach().abs().sum(-1)
+            semantic_error = (
+                (semantic_center - target_boxes[:, :2].float()) / normalizer
+            ).detach().abs().sum(-1)
+            gate_target = torch.sigmoid(2.0 * (semantic_error - moment_error))
+            gate_target = gate_target * valid.to(gate_target.dtype)
+            losses["loss_cmt_gate"] = F.binary_cross_entropy_with_logits(
+                gate_logits, gate_target, reduction="mean"
+            )
+        else:
+            losses["loss_cmt_gate"] = cmt["gate"].sum() * 0.0
+        return losses
+
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
         batch_idx = torch.cat([torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
@@ -276,6 +369,7 @@ class DFINECriterion(nn.Module):
             "focal": self.loss_labels_focal,
             "vfl": self.loss_labels_vfl,
             "local": self.loss_local,
+            "cmt": self.loss_cmt,
         }
         assert loss in loss_map, f"do you really want to compute {loss} loss?"
         return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)

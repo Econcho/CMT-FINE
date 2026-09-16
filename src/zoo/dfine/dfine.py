@@ -17,6 +17,7 @@ class DFINE(nn.Module):
         "backbone",
         "encoder",
         "decoder",
+        "cmt",
     ]
 
     def __init__(
@@ -24,16 +25,23 @@ class DFINE(nn.Module):
         backbone: nn.Module,
         encoder: nn.Module,
         decoder: nn.Module,
+        cmt: nn.Module = None,
     ):
         super().__init__()
         self.backbone = backbone
         self.decoder = decoder
         self.encoder = encoder
+        self.cmt = cmt
 
     def forward(self, x, targets=None):
+        cmt_state = self.cmt.prepare(x) if self.cmt is not None and self.cmt.active else None
         x = self.backbone(x)
         x = self.encoder(x)
-        x = self.decoder(x, targets)
+        x = self.decoder(x, targets, cmt=self.cmt, cmt_state=cmt_state)
+
+        if self.training and cmt_state is not None:
+            x["cmt_evidence_logits"] = cmt_state["evidence_logits"]
+            x["cmt_base_stride"] = self.cmt.pyramid.base_stride
 
         return x
 
