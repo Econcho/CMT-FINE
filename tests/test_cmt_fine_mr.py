@@ -33,6 +33,28 @@ def _load_cmt_module():
 cmt = _load_cmt_module()
 
 
+def _load_criterion_module():
+    root = pathlib.Path(__file__).resolve().parents[1]
+    misc = types.ModuleType("src.misc")
+    misc.__path__ = [str(root / "src" / "misc")]
+    sys.modules.setdefault("src.misc", misc)
+    dist_utils = types.ModuleType("src.misc.dist_utils")
+    dist_utils.get_world_size = lambda: 1
+    dist_utils.is_dist_available_and_initialized = lambda: False
+    sys.modules["src.misc.dist_utils"] = dist_utils
+
+    for name in ("box_ops", "dfine_utils", "dfine_criterion"):
+        qualified = f"src.zoo.dfine.{name}"
+        if qualified in sys.modules:
+            continue
+        path = root / "src" / "zoo" / "dfine" / f"{name}.py"
+        spec = importlib.util.spec_from_file_location(qualified, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[qualified] = module
+        spec.loader.exec_module(module)
+    return sys.modules["src.zoo.dfine.dfine_criterion"]
+
+
 class MomentPyramidTest(unittest.TestCase):
     def test_hierarchical_merge_matches_direct_moments(self):
         torch.manual_seed(7)
@@ -62,6 +84,18 @@ class MomentPyramidTest(unittest.TestCase):
         center1 = reader(pyramid(evidence1), reference1, moment_order=1)["centers_px"][0, 0, 0]
         torch.testing.assert_close(center1 - center0, torch.tensor([1.0, 0.0]))
 
+    def test_query_weights_select_different_evidence_bases(self):
+        evidence = torch.zeros(1, 2, 8, 8)
+        evidence[0, 0, 3, 2] = 1.0
+        evidence[0, 1, 3, 5] = 1.0
+        pyramid = cmt.MomentPyramid(base_stride=4, num_levels=2)
+        state = pyramid.from_base_evidence(evidence, image_size=(32, 32))
+        reader = cmt.MomentReader(base_stride=4, support_scales=(4.0,), min_radius_px=16.0)
+        reference = torch.tensor([[[0.5, 0.5, 1.0, 1.0], [0.5, 0.5, 1.0, 1.0]]])
+        weights = torch.tensor([[[1.0, 0.0], [0.0, 1.0]]])
+        centers = reader(state, reference, moment_order=1, basis_weights=weights)["centers_px"]
+        self.assertLess(centers[0, 0, 0, 0], centers[0, 1, 0, 0])
+
 
 class AblationConfigurationTest(unittest.TestCase):
     def test_disabled_paths_are_frozen_for_official_ddp_mode(self):
@@ -71,14 +105,9 @@ class AblationConfigurationTest(unittest.TestCase):
         fixed = cmt.CMTMomentRefiner(
             hidden_dim=16,
             reg_max=8,
-            learned_gate=False,
-            class_residual=False,
+            fixed_gain=0.25,
         )
-        self.assertFalse(any(parameter.requires_grad for parameter in fixed.gate_head.parameters()))
-        self.assertFalse(
-            any(parameter.requires_grad for parameter in fixed.class_descriptor_head.parameters())
-        )
-        self.assertFalse(fixed.class_residual_scale.requires_grad)
+        self.assertFalse(any(parameter.requires_grad for parameter in fixed.gain_head.parameters()))
         self.assertTrue(any(parameter.requires_grad for parameter in fixed.evidence.parameters()))
 
 
@@ -114,16 +143,51 @@ class DistributionProjectionTest(unittest.TestCase):
         self.assertGreater(projected_x.item(), 320.0)
         self.assertLess(abs(projected_x.item() - 380.0), 60.0)
 
+    def test_fixed_zero_gain_preserves_corner_logits(self):
+        module = cmt.CMTMomentRefiner(
+            hidden_dim=16,
+            semantic_channels=16,
+            evidence_channels=4,
+            evidence_bases=2,
+            reg_max=8,
+            fixed_gain=0.0,
+        )
+        images = torch.rand(1, 3, 32, 32)
+        semantics = torch.rand(1, 16, 4, 4)
+        state = module.prepare(images, semantics)
+        query = torch.rand(1, 2, 16)
+        boxes = torch.tensor([[[0.5, 0.5, 0.1, 0.1], [0.5, 0.5, 0.8, 0.8]]])
+        logits = torch.randn(1, 2, 4 * 9)
+        refined, diagnostics = module.refine(
+            logits,
+            query,
+            boxes,
+            boxes,
+            torch.linspace(-2, 2, 9),
+            torch.tensor([4.0]),
+            state,
+            layer_index=0,
+            final_index=0,
+        )
+        self.assertTrue(torch.equal(refined, logits))
+        self.assertGreater(
+            diagnostics["size_budget"][0, 0].item(),
+            diagnostics["size_budget"][0, 1].item(),
+        )
+
     def test_full_refiner_has_finite_gradients(self):
         torch.manual_seed(11)
         module = cmt.CMTMomentRefiner(
             hidden_dim=16,
+            semantic_channels=16,
             evidence_channels=4,
+            evidence_bases=3,
             reg_max=8,
             projection_strength=5.0,
         )
         images = torch.rand(2, 3, 64, 64, requires_grad=True)
-        state = module.prepare(images)
+        semantics = torch.rand(2, 16, 8, 8, requires_grad=True)
+        state = module.prepare(images, semantics)
         query = torch.rand(2, 7, 16, requires_grad=True)
         reference = torch.tensor([0.5, 0.5, 0.25, 0.25]).reshape(1, 1, 4).repeat(2, 7, 1)
         logits = torch.zeros(2, 7, 4 * 9, requires_grad=True)
@@ -131,22 +195,59 @@ class DistributionProjectionTest(unittest.TestCase):
             logits,
             query,
             reference,
+            reference,
             torch.linspace(-2, 2, 9),
             torch.tensor([4.0]),
             state,
             layer_index=0,
-            final_index=2,
+            final_index=0,
         )
         loss = (
             refined.square().mean()
             + diagnostics["moment_center"].mean()
-            + diagnostics["classification_query"].square().mean()
+            + diagnostics["gain_logits"].square().mean()
+            + diagnostics["basis_weights"].square().mean()
         )
         loss.backward()
         self.assertTrue(torch.isfinite(refined).all())
         self.assertTrue(torch.isfinite(images.grad).all())
+        self.assertTrue(torch.isfinite(semantics.grad).all())
         self.assertTrue(torch.isfinite(module.evidence.logit.weight.grad).all())
-        self.assertTrue(torch.isfinite(module.class_descriptor_head[-1].weight.grad).all())
+        self.assertTrue(torch.isfinite(module.gain_head[-1].weight.grad).all())
+
+
+class GainSupervisionTest(unittest.TestCase):
+    def test_gain_target_prefers_the_better_base_box(self):
+        criterion_module = _load_criterion_module()
+        criterion = criterion_module.DFINECriterion(
+            matcher=None,
+            weight_dict={},
+            losses=[],
+            num_classes=1,
+            reg_max=8,
+        )
+        target_box = torch.tensor([[0.5, 0.5, 0.2, 0.2]])
+        common = {
+            "cmt_evidence_logits": torch.zeros(1, 2, 8, 8),
+            "cmt": {
+                "moment_center": target_box[:, :2].reshape(1, 1, 2),
+                "semantic_center": target_box[:, :2].reshape(1, 1, 2),
+                "base_boxes": target_box.reshape(1, 1, 4),
+                "candidate_boxes": torch.tensor([[[0.7, 0.7, 0.2, 0.2]]]),
+                "gain": torch.zeros(1, 1, 1),
+                "gain_levels": torch.tensor([0.0, 0.25, 0.5, 1.0]),
+                "valid": torch.ones(1, 1, dtype=torch.bool),
+                "image_size": torch.tensor([32.0, 32.0]),
+            },
+        }
+        targets = [{"boxes": target_box, "labels": torch.tensor([0])}]
+        indices = [(torch.tensor([0]), torch.tensor([0]))]
+
+        common["cmt"]["gain_logits"] = torch.tensor([[[8.0, 0.0, 0.0, 0.0]]])
+        good = criterion.loss_cmt(common, targets, indices, 1.0)["loss_cmt_gain"]
+        common["cmt"]["gain_logits"] = torch.tensor([[[0.0, 0.0, 0.0, 8.0]]])
+        bad = criterion.loss_cmt(common, targets, indices, 1.0)["loss_cmt_gain"]
+        self.assertLess(good.item(), bad.item())
 
 
 class DFINETransformerIntegrationTest(unittest.TestCase):
@@ -169,7 +270,9 @@ class DFINETransformerIntegrationTest(unittest.TestCase):
         )
         branch = cmt.CMTMomentRefiner(
             hidden_dim=16,
+            semantic_channels=16,
             evidence_channels=4,
+            evidence_bases=3,
             num_moment_levels=2,
             reg_max=8,
             solver_steps=2,
@@ -178,13 +281,14 @@ class DFINETransformerIntegrationTest(unittest.TestCase):
         features = [torch.rand(2, 16, 4, 4)]
 
         decoder.train()
-        train_output = decoder(features, cmt=branch, cmt_state=branch.prepare(images))
+        train_output = decoder(features, cmt=branch, cmt_state=branch.prepare(images, features[0]))
         self.assertEqual(train_output["pred_boxes"].shape, (2, 5, 4))
         self.assertIn("cmt", train_output)
-        self.assertNotIn("classification_query", train_output["cmt"])
+        self.assertIn("candidate_boxes", train_output["cmt"])
+        self.assertIn("gain_logits", train_output["cmt"])
 
         decoder.eval()
-        eval_output = decoder(features, cmt=branch, cmt_state=branch.prepare(images))
+        eval_output = decoder(features, cmt=branch, cmt_state=branch.prepare(images, features[0]))
         self.assertEqual(set(eval_output), {"pred_logits", "pred_boxes"})
 
         official_output = decoder(features)
@@ -197,7 +301,9 @@ class DFINETransformerIntegrationTest(unittest.TestCase):
 
         early_only = cmt.CMTMomentRefiner(
             hidden_dim=16,
+            semantic_channels=16,
             evidence_channels=4,
+            evidence_bases=3,
             num_moment_levels=2,
             reg_max=8,
             solver_steps=2,
@@ -205,7 +311,7 @@ class DFINETransformerIntegrationTest(unittest.TestCase):
         )
         decoder.train()
         early_output = decoder(
-            features, cmt=early_only, cmt_state=early_only.prepare(images)
+            features, cmt=early_only, cmt_state=early_only.prepare(images, features[0])
         )
         self.assertIn("cmt", early_output)
 

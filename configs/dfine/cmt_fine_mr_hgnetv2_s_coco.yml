@@ -11,24 +11,29 @@ CMTMomentRefiner:
   enabled: True
   mode: full                 # baseline/evidence_only/mass_only/first_order/full
   hidden_dim: 256            # must match DFINETransformer.hidden_dim
-  evidence_channels: 16
+  semantic_channels: 256     # HybridEncoder output channels
+  evidence_channels: 24
+  evidence_bases: 8          # shared bases mixed independently for every query
   evidence_activation: softplus
   base_stride: 4
-  num_moment_levels: 4
-  support_scales: [0.75, 1.5, 3.0]
-  min_radius_px: 4.0
+  num_moment_levels: 1       # current reader consumes M4 only; avoids unused coarse states
+  support_scales: [0.5, 1.0, 2.0]
+  min_radius_px: 2.0
   reg_max: 32                # must match DFINETransformer.reg_max
   projection_strength: 1.0
   solver_steps: 4
-  learned_gate: True
-  fixed_gate: 0.5
-  class_residual: True       # q + alpha * MLP(moment descriptor) for class scores
-  class_residual_init: 0.01
-  refine_layers: all         # all/last or an explicit list, e.g. [2]
+  gain_levels: [0.0, 0.25, 0.5, 1.0]
+  fixed_gain: null           # set 0/0.25/0.5/1 for a fixed-gain ablation
+  tiny_side_px: 32.0
+  size_temperature: 0.5
+  min_size_budget: 0.15
+  max_size_budget: 1.0
+  refine_layers: last        # recommended; all or explicit indices remain ablations
 
 DFINECriterion:
   weight_dict:
-    loss_cmt_evidence: 0.25
+    loss_cmt_evidence: 0.10
     loss_cmt_center: 0.10
-    loss_cmt_gate: 0.05
+    loss_cmt_candidate: 0.50
+    loss_cmt_gain: 0.10
   losses: ['vfl', 'boxes', 'local', 'cmt']

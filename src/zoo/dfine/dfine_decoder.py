@@ -432,10 +432,14 @@ class TransformerDecoder(nn.Module):
             cmt_output = None
             score_query = output
             if cmt is not None and cmt_state is not None:
+                current_bbox = distance2bbox(
+                    ref_points_initial, integral(pred_corners, project), reg_scale
+                )
                 pred_corners, cmt_output = cmt.refine(
                     pred_corners,
                     output,
                     ref_points_initial,
+                    current_bbox,
                     project,
                     reg_scale,
                     cmt_state,
@@ -922,12 +926,19 @@ class DFINETransformer(nn.Module):
             dn_out_refs, out_refs = torch.split(out_refs, dn_meta["dn_num_split"], dim=2)
 
             if final_cmt is not None:
-                normal_cmt = {"image_size": final_cmt["image_size"]}
+                normal_cmt = {
+                    "image_size": final_cmt["image_size"],
+                    "gain_levels": final_cmt["gain_levels"],
+                }
                 for key in (
                     "moment_center",
                     "semantic_center",
-                    "gate",
-                    "gate_logits",
+                    "base_boxes",
+                    "candidate_boxes",
+                    "gain",
+                    "gain_logits",
+                    "size_budget",
+                    "basis_weights",
                     "valid",
                     "mass",
                     "scale_weights",

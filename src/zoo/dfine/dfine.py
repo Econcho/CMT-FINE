@@ -34,10 +34,15 @@ class DFINE(nn.Module):
         self.cmt = cmt
 
     def forward(self, x, targets=None):
-        cmt_state = self.cmt.prepare(x) if self.cmt is not None and self.cmt.active else None
-        x = self.backbone(x)
-        x = self.encoder(x)
-        x = self.decoder(x, targets, cmt=self.cmt, cmt_state=cmt_state)
+        images = x
+        features = self.backbone(images)
+        features = self.encoder(features)
+        cmt_state = (
+            self.cmt.prepare(images, features[0])
+            if self.cmt is not None and self.cmt.active
+            else None
+        )
+        x = self.decoder(features, targets, cmt=self.cmt, cmt_state=cmt_state)
 
         if self.training and cmt_state is not None:
             x["cmt_evidence_logits"] = cmt_state["evidence_logits"]

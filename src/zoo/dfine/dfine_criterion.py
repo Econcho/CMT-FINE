@@ -21,6 +21,26 @@ from .box_ops import box_cxcywh_to_xyxy, box_iou, generalized_box_iou
 from .dfine_utils import bbox2distance
 
 
+def _aligned_generalized_box_iou(boxes1, boxes2):
+    """Element-wise GIoU for aligned xyxy boxes without an NxN temporary."""
+    lt = torch.maximum(boxes1[..., :2], boxes2[..., :2])
+    rb = torch.minimum(boxes1[..., 2:], boxes2[..., 2:])
+    inter_wh = (rb - lt).clamp_min(0.0)
+    inter = inter_wh[..., 0] * inter_wh[..., 1]
+    area1 = (boxes1[..., 2] - boxes1[..., 0]).clamp_min(0.0) * (
+        boxes1[..., 3] - boxes1[..., 1]
+    ).clamp_min(0.0)
+    area2 = (boxes2[..., 2] - boxes2[..., 0]).clamp_min(0.0) * (
+        boxes2[..., 3] - boxes2[..., 1]
+    ).clamp_min(0.0)
+    union = (area1 + area2 - inter).clamp_min(1e-8)
+    enclosing_lt = torch.minimum(boxes1[..., :2], boxes2[..., :2])
+    enclosing_rb = torch.maximum(boxes1[..., 2:], boxes2[..., 2:])
+    enclosing_wh = (enclosing_rb - enclosing_lt).clamp_min(0.0)
+    enclosing = (enclosing_wh[..., 0] * enclosing_wh[..., 1]).clamp_min(1e-8)
+    return inter / union - (enclosing - union) / enclosing
+
+
 @register()
 class DFINECriterion(nn.Module):
     """This class computes the loss for D-FINE."""
@@ -232,10 +252,9 @@ class DFINECriterion(nn.Module):
         return losses
 
     @staticmethod
-    def _cmt_center_target(evidence_logits, targets, stride=4):
+    def _cmt_center_target(evidence_logits, targets):
         """Create a sparse bilinear center target at the moment-pyramid resolution."""
-        height = math.ceil(evidence_logits.shape[-2] / stride)
-        width = math.ceil(evidence_logits.shape[-1] / stride)
+        height, width = evidence_logits.shape[-2:]
         target = evidence_logits.new_zeros((len(targets), 1, height, width), dtype=torch.float32)
         flat_target = target.flatten(2)
         for batch_index, item in enumerate(targets):
@@ -263,12 +282,11 @@ class DFINECriterion(nn.Module):
             return {}
         cmt = outputs["cmt"]
         evidence_logits = outputs["cmt_evidence_logits"].float()
-        stride = int(outputs.get("cmt_base_stride", 4))
-        pooled_logits = F.avg_pool2d(
-            evidence_logits, kernel_size=stride, stride=stride, ceil_mode=True
+        aggregate_logits = torch.logsumexp(evidence_logits, dim=1, keepdim=True) - math.log(
+            evidence_logits.shape[1]
         )
-        center_target = self._cmt_center_target(evidence_logits, targets, stride=stride)
-        probability = pooled_logits.sigmoid().clamp(1e-6, 1.0 - 1e-6)
+        center_target = self._cmt_center_target(aggregate_logits, targets)
+        probability = aggregate_logits.sigmoid().clamp(1e-6, 1.0 - 1e-6)
         positive = -center_target * (1.0 - probability).square() * probability.log()
         negative = (
             -0.05
@@ -285,9 +303,12 @@ class DFINECriterion(nn.Module):
             zero = (
                 evidence_logits.sum()
                 + cmt["moment_center"].sum()
-                + cmt["gate"].sum()
+                + cmt["gain"].sum()
+                + cmt["candidate_boxes"].sum()
             ) * 0.0
-            losses.update({"loss_cmt_center": zero, "loss_cmt_gate": zero})
+            losses.update(
+                {"loss_cmt_center": zero, "loss_cmt_candidate": zero, "loss_cmt_gain": zero}
+            )
             return losses
 
         target_boxes = torch.cat([t["boxes"][j] for t, (_, j) in zip(targets, indices)], dim=0)
@@ -308,19 +329,40 @@ class DFINECriterion(nn.Module):
         else:
             losses["loss_cmt_center"] = moment_center.sum() * 0.0
 
-        gate_logits = cmt["gate_logits"][idx].float().squeeze(-1)
-        if torch.isfinite(gate_logits).all():
-            moment_error = normalized_moment_error.detach().abs().sum(-1)
-            semantic_error = (
-                (semantic_center - target_boxes[:, :2].float()) / normalizer
-            ).detach().abs().sum(-1)
-            gate_target = torch.sigmoid(2.0 * (semantic_error - moment_error))
-            gate_target = gate_target * valid.to(gate_target.dtype)
-            losses["loss_cmt_gate"] = F.binary_cross_entropy_with_logits(
-                gate_logits, gate_target, reduction="mean"
+        base_boxes = cmt["base_boxes"][idx].float()
+        candidate_boxes = cmt["candidate_boxes"][idx].float()
+        candidate_l1 = F.l1_loss(candidate_boxes, target_boxes.float(), reduction="none").sum(-1)
+        candidate_giou = _aligned_generalized_box_iou(
+            box_cxcywh_to_xyxy(candidate_boxes), box_cxcywh_to_xyxy(target_boxes.float())
+        )
+        if valid.any():
+            losses["loss_cmt_candidate"] = (
+                candidate_l1[valid] + 2.0 * (1.0 - candidate_giou[valid])
+            ).mean()
+        else:
+            losses["loss_cmt_candidate"] = candidate_boxes.sum() * 0.0
+
+        gain_logits = cmt["gain_logits"][idx].float()
+        gain_levels = cmt["gain_levels"].to(gain_logits)
+        base_xyxy = box_cxcywh_to_xyxy(base_boxes.detach())
+        candidate_xyxy = box_cxcywh_to_xyxy(candidate_boxes.detach())
+        target_xyxy = box_cxcywh_to_xyxy(target_boxes.float()).detach()
+        candidates = base_xyxy.unsqueeze(1) + gain_levels.reshape(1, -1, 1) * (
+            candidate_xyxy - base_xyxy
+        ).unsqueeze(1)
+        target_expanded = target_xyxy.unsqueeze(1).expand_as(candidates)
+        target_wh = target_boxes[:, 2:4].float().clamp_min(4.0 / max(float(image_h), float(image_w)))
+        coordinate_scale = torch.cat([target_wh, target_wh], dim=-1).unsqueeze(1)
+        relative_l1 = ((candidates - target_expanded).abs() / coordinate_scale).sum(-1)
+        pair_giou = _aligned_generalized_box_iou(candidates, target_expanded)
+        gain_cost = relative_l1 + 2.0 * (1.0 - pair_giou) + 0.02 * gain_levels.reshape(1, -1)
+        gain_target = gain_cost.argmin(dim=-1)
+        if valid.any() and torch.isfinite(gain_logits).all():
+            losses["loss_cmt_gain"] = F.cross_entropy(
+                gain_logits[valid], gain_target[valid], reduction="mean"
             )
         else:
-            losses["loss_cmt_gate"] = cmt["gate"].sum() * 0.0
+            losses["loss_cmt_gain"] = cmt["gain"].sum() * 0.0
         return losses
 
     def _get_src_permutation_idx(self, indices):
