@@ -1,0 +1,1074 @@
+{
+  "task": "inference",
+  "batch": 1,
+  "amp": true,
+  "config": {
+    "model": {
+      "architecture": "cmtdet_i",
+      "backbone": "resnet50",
+      "hgnet_use_lab": true,
+      "hgnet_freeze_norm": true,
+      "resnet_freeze_norm": true,
+      "classes": 1,
+      "input_size": 640,
+      "dims": [
+        128,
+        256,
+        512,
+        1024
+      ],
+      "depths": [
+        3,
+        3,
+        27,
+        3
+      ],
+      "hidden": 256,
+      "heads": 8,
+      "points": 4,
+      "ffn": 1024,
+      "encoder_layers": 1,
+      "decoder_layers": 4,
+      "queries": 300,
+      "attention_chunk": 1024,
+      "attention_backend": "pytorch",
+      "hoist_attention_maps": true,
+      "checkpoint_encoder": true,
+      "detach_references": true,
+      "denoising": 100,
+      "use_p2": false,
+      "dn_box_noise": 0.4,
+      "dn_label_noise": 0.5
+    },
+    "cmt": {
+      "mode": "full",
+      "width": 16,
+      "dilations": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "order": 2,
+      "compression": "moments",
+      "stride": 4,
+      "fusion_init": 0.001,
+      "support_factors": [
+        0.75,
+        1.5,
+        3.0
+      ],
+      "support_min": 4.0,
+      "support_max": 96.0,
+      "query_chunk": 64,
+      "mass_epsilon": 1e-06,
+      "gate": true,
+      "residual": true,
+      "residual_fraction": 0.1,
+      "bounds": false,
+      "reader_backend": "bucket",
+      "pair_product_backend": "explicit"
+    },
+    "train": {
+      "epochs": 100,
+      "batch_size": 2,
+      "accumulation": 8,
+      "workers": 4,
+      "lr": 0.0002,
+      "backbone_lr": 2e-05,
+      "weight_decay": 0.0001,
+      "warmup_epochs": 1,
+      "grad_clip": 0.1,
+      "amp": true,
+      "amp_init_scale": 128.0,
+      "seed": 42,
+      "val_interval": 1,
+      "patience": 20,
+      "min_delta": 0.0,
+      "monitor": "AP50_95",
+      "progress": true,
+      "horizontal_flip": 0.5,
+      "heat_weight": 1.0,
+      "centroid_weight": 0.0,
+      "gate_weight": 0.0,
+      "residual_weight": 0.0,
+      "temporary_weight": 0.0,
+      "class_weight": 1.0,
+      "box_l1_weight": 5.0,
+      "giou_weight": 2.0,
+      "match_class": 2.0,
+      "match_box": 5.0,
+      "match_giou": 2.0,
+      "auxiliary_weight": 1.0,
+      "denoising_weight": 1.0,
+      "reuse_assignments": true,
+      "full_val_interval": 5,
+      "prefetch_factor": 2
+    },
+    "eval": {
+      "tiny_area_space": "input",
+      "batch_size": 2,
+      "max_detections": 300,
+      "score_threshold": 0.0,
+      "save_match_details": true,
+      "save_raw_predictions": true,
+      "amp": true,
+      "light_amp": true
+    },
+    "logging": {
+      "interval": 1
+    },
+    "mia": {
+      "evidence_fp32": true,
+      "heads": 4,
+      "key_dim": 32,
+      "value_dim": 16,
+      "local_dim": 64,
+      "moment_queries": 0.5,
+      "proposal_radius": 2,
+      "proposal_loss_weight": 1.0,
+      "content_weights": true,
+      "shared_weights": true,
+      "geometry_to_content": true,
+      "logit_clip": 8.0,
+      "checkpoint_readout": false,
+      "checkpoint_evidence": true,
+      "cell_budget": 65536,
+      "integral_layers": "all",
+      "reader_backend": "bucket"
+    }
+  },
+  "torch": "2.7.1+cu128",
+  "python": "3.11.16",
+  "device": "cuda",
+  "gpu": "NVIDIA GeForce RTX 3060 Laptop GPU",
+  "weights": "random initialization",
+  "input": "synthetic RGB-normalized tensor, one GT/image",
+  "source_hashes": {
+    "attention.py": "a1637a13aec87f5116dd2d2bc6b719958db8037269a7be12d1548da095a7f8a8",
+    "cli.py": "60f8b51efd47b6d33f3f9478a39bbd09013bc3cfe0638313d80c70c20f3c695a",
+    "cmt.py": "7f9a33d9efd2ba0a3e218ad92a8d89a6307d284a3f8a802011e8da8956f61cde",
+    "config.py": "64f5602fdf5e8a43993c5604bab82640a41dd8b78153001cfe1eddf704bfb69f",
+    "data.py": "ac30c74beb2dd012af17b34f04210478208ba2105a4b7e512e63c60ea6893d47",
+    "engine.py": "60a2f04736d7422c61f9ee24930d901c82675864c4048357f625ed9e39f835b6",
+    "evaluation.py": "2da240a1478e68d147e4d7ffbc1799e21fc56d54e206ed32db04593014965536",
+    "geometry.py": "e3dfa72c43b12ba7afe6c55088885357abbb122068249791ff0dd9153216ae38",
+    "hgnetv2.py": "37bd24d601763e3e0eaf14237a948080e4dc276a47c905eb42015e92c550465e",
+    "losses.py": "888a6190491f2cd76691ece5f56aa762c1612dfc1473cb58c7bca42e38274a3e",
+    "miattn.py": "13a752bf345cdb0239b7c6d38eb8835e2f1f6224c30412834b1e3bb7a9cffb7b",
+    "model.py": "fd8d5e384958de027ca8b1ed12817cec55405285afc9221a44586ff2d1e016ae",
+    "moments.py": "a6990cce2422ac57c038f0823e5897be95ed58aa54f06bfb4cb421f35efb1888",
+    "products.py": "767c46954c02389efe6d9e7dca6ab4dcee68a9908342ad76555888290a7ccdd3",
+    "resnet.py": "639e7dee34d5d6868f52db3f2e84c56bbdb0e9bf3675d02c0a0e8c783ec76fe8",
+    "__init__.py": "46a107d676072c2ef00188e54527a6f3f9db7b46c289976a227d5d33a4c88791",
+    "__main__.py": "4e17197a9a6c28d2fcc96feea327eb0224c21361209b471c3270ca8a2f760ca6"
+  },
+  "scope": "model only; excludes image decode, dataloader, COCO eval, JSON and checkpoints",
+  "parameters": 35040809,
+  "timings": [
+    {
+      "forward_ms": 137.50910002272576
+    },
+    {
+      "forward_ms": 149.55270005157217
+    }
+  ],
+  "forward_stages": {
+    "backbone": {
+      "calls": 1,
+      "host_ms": 7.186800008639693,
+      "cuda_timeline_ms": 9.809920310974121
+    },
+    "encoder": {
+      "calls": 1,
+      "host_ms": 17.264900030568242,
+      "cuda_timeline_ms": 15.111167907714844
+    },
+    "evidence_and_encode": {
+      "calls": 1,
+      "host_ms": 35.29769997112453,
+      "cuda_timeline_ms": 34.68083190917969
+    },
+    "decoder": {
+      "calls": 4,
+      "host_ms": 10.34030003938824,
+      "cuda_timeline_ms": 9.969663858413696
+    },
+    "moment_integral": {
+      "calls": 4,
+      "host_ms": 54.76930004078895,
+      "cuda_timeline_ms": 54.121055603027344
+    },
+    "integral_update": {
+      "calls": 4,
+      "host_ms": 5.56489999871701,
+      "cuda_timeline_ms": 7.088127970695496
+    }
+  },
+  "stage_instrumentation": "coarse CUDA events only; separate from uninstrumented timings",
+  "forward_operations": {
+    "casts_to_fp32": 63,
+    "casts_to_fp32_output_bytes": 86547264,
+    "aten.grid_sampler_2d.default": 39,
+    "grid_input_elements_summed": 27955200
+  },
+  "counted_forward_flops": 108952678272,
+  "module_flops": {
+    "Global": {
+      "aten.convolution": 85350604800,
+      "aten.addmm": 22511001600,
+      "aten._scaled_dot_product_efficient_attention": 368640000,
+      "aten.bmm": 722431872
+    },
+    "CMTDetI": {
+      "aten.convolution": 85350604800,
+      "aten.addmm": 22511001600,
+      "aten._scaled_dot_product_efficient_attention": 368640000,
+      "aten.bmm": 722431872
+    },
+    "CMTDetI.backbone.conv1": {
+      "aten.convolution": 1926758400
+    },
+    "CMTDetI.backbone": {
+      "aten.convolution": 66728755200
+    },
+    "CMTDetI.backbone.layer1.0": {
+      "aten.convolution": 3774873600
+    },
+    "CMTDetI.backbone.layer1.0.downsample.0": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer1": {
+      "aten.convolution": 10905190400
+    },
+    "CMTDetI.backbone.layer1.0.downsample": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer1.0.conv1": {
+      "aten.convolution": 209715200
+    },
+    "CMTDetI.backbone.layer1.0.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer1.0.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer1.1": {
+      "aten.convolution": 3565158400
+    },
+    "CMTDetI.backbone.layer1.1.conv1": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer1.1.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer1.1.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer1.2.conv1": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer1.2": {
+      "aten.convolution": 3565158400
+    },
+    "CMTDetI.backbone.layer1.2.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer1.2.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer2.0.downsample.0": {
+      "aten.convolution": 1677721600
+    },
+    "CMTDetI.backbone.layer2.0": {
+      "aten.convolution": 6081740800
+    },
+    "CMTDetI.backbone.layer2.0.downsample": {
+      "aten.convolution": 1677721600
+    },
+    "CMTDetI.backbone.layer2": {
+      "aten.convolution": 16777216000
+    },
+    "CMTDetI.backbone.layer2.0.conv1": {
+      "aten.convolution": 1677721600
+    },
+    "CMTDetI.backbone.layer2.0.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer2.0.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer2.1": {
+      "aten.convolution": 3565158400
+    },
+    "CMTDetI.backbone.layer2.1.conv1": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer2.1.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer2.1.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer2.2.conv1": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer2.2": {
+      "aten.convolution": 3565158400
+    },
+    "CMTDetI.backbone.layer2.2.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer2.2.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer2.3.conv1": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer2.3": {
+      "aten.convolution": 3565158400
+    },
+    "CMTDetI.backbone.layer2.3.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer2.3.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer3.0": {
+      "aten.convolution": 6081740800
+    },
+    "CMTDetI.backbone.layer3": {
+      "aten.convolution": 23907532800
+    },
+    "CMTDetI.backbone.layer3.0.downsample": {
+      "aten.convolution": 1677721600
+    },
+    "CMTDetI.backbone.layer3.0.downsample.0": {
+      "aten.convolution": 1677721600
+    },
+    "CMTDetI.backbone.layer3.0.conv1": {
+      "aten.convolution": 1677721600
+    },
+    "CMTDetI.backbone.layer3.0.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer3.0.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer3.1.conv1": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer3.1": {
+      "aten.convolution": 3565158400
+    },
+    "CMTDetI.backbone.layer3.1.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer3.1.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer3.2": {
+      "aten.convolution": 3565158400
+    },
+    "CMTDetI.backbone.layer3.2.conv1": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer3.2.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer3.2.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer3.3.conv1": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer3.3": {
+      "aten.convolution": 3565158400
+    },
+    "CMTDetI.backbone.layer3.3.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer3.3.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer3.4.conv1": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer3.4": {
+      "aten.convolution": 3565158400
+    },
+    "CMTDetI.backbone.layer3.4.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer3.4.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer3.5": {
+      "aten.convolution": 3565158400
+    },
+    "CMTDetI.backbone.layer3.5.conv1": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer3.5.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer3.5.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer4.0.downsample.0": {
+      "aten.convolution": 1677721600
+    },
+    "CMTDetI.backbone.layer4.0": {
+      "aten.convolution": 6081740800
+    },
+    "CMTDetI.backbone.layer4.0.downsample": {
+      "aten.convolution": 1677721600
+    },
+    "CMTDetI.backbone.layer4": {
+      "aten.convolution": 13212057600
+    },
+    "CMTDetI.backbone.layer4.0.conv1": {
+      "aten.convolution": 1677721600
+    },
+    "CMTDetI.backbone.layer4.0.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer4.0.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer4.1": {
+      "aten.convolution": 3565158400
+    },
+    "CMTDetI.backbone.layer4.1.conv1": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer4.1.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer4.1.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer4.2": {
+      "aten.convolution": 3565158400
+    },
+    "CMTDetI.backbone.layer4.2.conv1": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.backbone.layer4.2.conv2": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.backbone.layer4.2.conv3": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.lateral.2": {
+      "aten.convolution": 419430400
+    },
+    "CMTDetI.smooth.2": {
+      "aten.convolution": 471859200
+    },
+    "CMTDetI.lateral.1": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.smooth.1": {
+      "aten.convolution": 1887436800
+    },
+    "CMTDetI.lateral.0": {
+      "aten.convolution": 1677721600
+    },
+    "CMTDetI.smooth.0": {
+      "aten.convolution": 7549747200
+    },
+    "CMTDetI.encoder.0": {
+      "aten.addmm": 12248678400
+    },
+    "CMTDetI.encoder.0.attn": {
+      "aten.addmm": 3440640000
+    },
+    "CMTDetI.encoder.0.attn.value": {
+      "aten.addmm": 1101004800
+    },
+    "CMTDetI.encoder.0.attn.offsets": {
+      "aten.addmm": 825753600
+    },
+    "CMTDetI.encoder.0.attn.weights": {
+      "aten.addmm": 412876800
+    },
+    "CMTDetI.encoder.0.attn.output": {
+      "aten.addmm": 1101004800
+    },
+    "CMTDetI.encoder.0.ffn": {
+      "aten.addmm": 8808038400
+    },
+    "CMTDetI.encoder.0.ffn.0": {
+      "aten.addmm": 4404019200
+    },
+    "CMTDetI.encoder.0.ffn.2": {
+      "aten.addmm": 4404019200
+    },
+    "CMTDetI.encoder_box.0": {
+      "aten.addmm": 1101004800
+    },
+    "CMTDetI.encoder_box": {
+      "aten.addmm": 1118208000
+    },
+    "CMTDetI.encoder_box.2": {
+      "aten.addmm": 17203200
+    },
+    "CMTDetI.class_head": {
+      "aten.addmm": 4915200
+    },
+    "CMTDetI.cmt.evidence_body": {
+      "aten.convolution": 4181196800
+    },
+    "CMTDetI.cmt.evidence_body.0": {
+      "aten.convolution": 353894400
+    },
+    "CMTDetI.cmt": {
+      "aten.convolution": 5776793600
+    },
+    "CMTDetI.cmt.evidence_body.3.net": {
+      "aten.convolution": 956825600
+    },
+    "CMTDetI.cmt.evidence_body.3": {
+      "aten.convolution": 956825600
+    },
+    "CMTDetI.cmt.evidence_body.3.net.0": {
+      "aten.convolution": 117964800
+    },
+    "CMTDetI.cmt.evidence_body.3.net.2": {
+      "aten.convolution": 419430400
+    },
+    "CMTDetI.cmt.evidence_body.3.net.4": {
+      "aten.convolution": 419430400
+    },
+    "CMTDetI.cmt.evidence_body.4.net": {
+      "aten.convolution": 956825600
+    },
+    "CMTDetI.cmt.evidence_body.4": {
+      "aten.convolution": 956825600
+    },
+    "CMTDetI.cmt.evidence_body.4.net.0": {
+      "aten.convolution": 117964800
+    },
+    "CMTDetI.cmt.evidence_body.4.net.2": {
+      "aten.convolution": 419430400
+    },
+    "CMTDetI.cmt.evidence_body.4.net.4": {
+      "aten.convolution": 419430400
+    },
+    "CMTDetI.cmt.evidence_body.5.net": {
+      "aten.convolution": 956825600
+    },
+    "CMTDetI.cmt.evidence_body.5.net.0": {
+      "aten.convolution": 117964800
+    },
+    "CMTDetI.cmt.evidence_body.5": {
+      "aten.convolution": 956825600
+    },
+    "CMTDetI.cmt.evidence_body.5.net.2": {
+      "aten.convolution": 419430400
+    },
+    "CMTDetI.cmt.evidence_body.5.net.4": {
+      "aten.convolution": 419430400
+    },
+    "CMTDetI.cmt.evidence_body.6": {
+      "aten.convolution": 956825600
+    },
+    "CMTDetI.cmt.evidence_body.6.net": {
+      "aten.convolution": 956825600
+    },
+    "CMTDetI.cmt.evidence_body.6.net.0": {
+      "aten.convolution": 117964800
+    },
+    "CMTDetI.cmt.evidence_body.6.net.2": {
+      "aten.convolution": 419430400
+    },
+    "CMTDetI.cmt.evidence_body.6.net.4": {
+      "aten.convolution": 419430400
+    },
+    "CMTDetI.cmt.evidence_head": {
+      "aten.convolution": 13107200
+    },
+    "CMTDetI.cmt.descriptor_head": {
+      "aten.convolution": 209715200
+    },
+    "CMTDetI.cmt.local": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.cmt.local.0": {
+      "aten.convolution": 838860800
+    },
+    "CMTDetI.cmt.keys": {
+      "aten.convolution": 471859200
+    },
+    "CMTDetI.cmt.proposal_class": {
+      "aten.convolution": 3686400
+    },
+    "CMTDetI.cmt.proposal_size": {
+      "aten.convolution": 7372800
+    },
+    "CMTDetI.cmt.proposal_content": {
+      "aten.addmm": 5529600
+    },
+    "CMTDetI.decoder.0.reference_embed.0": {
+      "aten.addmm": 1228800
+    },
+    "CMTDetI.decoder.0.reference_embed": {
+      "aten.addmm": 79872000
+    },
+    "CMTDetI.decoder.0": {
+      "aten.addmm": 1736294400,
+      "aten._scaled_dot_product_efficient_attention": 92160000
+    },
+    "CMTDetI.decoder.0.reference_embed.2": {
+      "aten.addmm": 78643200
+    },
+    "CMTDetI.decoder.0.self_attn": {
+      "aten.addmm": 157286400,
+      "aten._scaled_dot_product_efficient_attention": 92160000
+    },
+    "CMTDetI.decoder.0.cross": {
+      "aten.addmm": 1184563200
+    },
+    "CMTDetI.decoder.0.cross.value": {
+      "aten.addmm": 1101004800
+    },
+    "CMTDetI.decoder.0.cross.offsets": {
+      "aten.addmm": 29491200
+    },
+    "CMTDetI.decoder.0.cross.weights": {
+      "aten.addmm": 14745600
+    },
+    "CMTDetI.decoder.0.cross.output": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.decoder.0.ffn": {
+      "aten.addmm": 314572800
+    },
+    "CMTDetI.decoder.0.ffn.0": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.decoder.0.ffn.2": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.temp_heads.0.0": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.temp_heads.0": {
+      "aten.addmm": 39936000
+    },
+    "CMTDetI.temp_heads.0.2": {
+      "aten.addmm": 614400
+    },
+    "CMTDetI.integrals.0.query_key": {
+      "aten.addmm": 19660800
+    },
+    "CMTDetI.integrals.0": {
+      "aten.addmm": 31948800,
+      "aten.bmm": 180607968
+    },
+    "CMTDetI.integrals.0.support_mix": {
+      "aten.addmm": 1843200
+    },
+    "CMTDetI.integrals.0.head_mix": {
+      "aten.addmm": 614400
+    },
+    "CMTDetI.integrals.0.value_out": {
+      "aten.addmm": 9830400
+    },
+    "CMTDetI.updates.0.geometry.0": {
+      "aten.addmm": 1228800
+    },
+    "CMTDetI.updates.0": {
+      "aten.addmm": 475238400
+    },
+    "CMTDetI.updates.0.geometry": {
+      "aten.addmm": 40550400
+    },
+    "CMTDetI.updates.0.geometry.2": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.updates.0.ffn.0": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.updates.0.ffn": {
+      "aten.addmm": 314572800
+    },
+    "CMTDetI.updates.0.ffn.2": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.updates.0.gate.0": {
+      "aten.addmm": 40550400
+    },
+    "CMTDetI.updates.0.gate": {
+      "aten.addmm": 40857600
+    },
+    "CMTDetI.updates.0.gate.2": {
+      "aten.addmm": 307200
+    },
+    "CMTDetI.updates.0.residual.0": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.updates.0.residual": {
+      "aten.addmm": 39628800
+    },
+    "CMTDetI.updates.0.residual.2": {
+      "aten.addmm": 307200
+    },
+    "CMTDetI.updates.0.size": {
+      "aten.addmm": 39628800
+    },
+    "CMTDetI.updates.0.size.0": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.updates.0.size.2": {
+      "aten.addmm": 307200
+    },
+    "CMTDetI.decoder.1.reference_embed": {
+      "aten.addmm": 79872000
+    },
+    "CMTDetI.decoder.1.reference_embed.0": {
+      "aten.addmm": 1228800
+    },
+    "CMTDetI.decoder.1": {
+      "aten.addmm": 1736294400,
+      "aten._scaled_dot_product_efficient_attention": 92160000
+    },
+    "CMTDetI.decoder.1.reference_embed.2": {
+      "aten.addmm": 78643200
+    },
+    "CMTDetI.decoder.1.self_attn": {
+      "aten.addmm": 157286400,
+      "aten._scaled_dot_product_efficient_attention": 92160000
+    },
+    "CMTDetI.decoder.1.cross.value": {
+      "aten.addmm": 1101004800
+    },
+    "CMTDetI.decoder.1.cross": {
+      "aten.addmm": 1184563200
+    },
+    "CMTDetI.decoder.1.cross.offsets": {
+      "aten.addmm": 29491200
+    },
+    "CMTDetI.decoder.1.cross.weights": {
+      "aten.addmm": 14745600
+    },
+    "CMTDetI.decoder.1.cross.output": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.decoder.1.ffn": {
+      "aten.addmm": 314572800
+    },
+    "CMTDetI.decoder.1.ffn.0": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.decoder.1.ffn.2": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.temp_heads.1.0": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.temp_heads.1": {
+      "aten.addmm": 39936000
+    },
+    "CMTDetI.temp_heads.1.2": {
+      "aten.addmm": 614400
+    },
+    "CMTDetI.integrals.1": {
+      "aten.addmm": 31948800,
+      "aten.bmm": 180607968
+    },
+    "CMTDetI.integrals.1.query_key": {
+      "aten.addmm": 19660800
+    },
+    "CMTDetI.integrals.1.support_mix": {
+      "aten.addmm": 1843200
+    },
+    "CMTDetI.integrals.1.head_mix": {
+      "aten.addmm": 614400
+    },
+    "CMTDetI.integrals.1.value_out": {
+      "aten.addmm": 9830400
+    },
+    "CMTDetI.updates.1.geometry": {
+      "aten.addmm": 40550400
+    },
+    "CMTDetI.updates.1": {
+      "aten.addmm": 475238400
+    },
+    "CMTDetI.updates.1.geometry.0": {
+      "aten.addmm": 1228800
+    },
+    "CMTDetI.updates.1.geometry.2": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.updates.1.ffn.0": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.updates.1.ffn": {
+      "aten.addmm": 314572800
+    },
+    "CMTDetI.updates.1.ffn.2": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.updates.1.gate": {
+      "aten.addmm": 40857600
+    },
+    "CMTDetI.updates.1.gate.0": {
+      "aten.addmm": 40550400
+    },
+    "CMTDetI.updates.1.gate.2": {
+      "aten.addmm": 307200
+    },
+    "CMTDetI.updates.1.residual.0": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.updates.1.residual": {
+      "aten.addmm": 39628800
+    },
+    "CMTDetI.updates.1.residual.2": {
+      "aten.addmm": 307200
+    },
+    "CMTDetI.updates.1.size.0": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.updates.1.size": {
+      "aten.addmm": 39628800
+    },
+    "CMTDetI.updates.1.size.2": {
+      "aten.addmm": 307200
+    },
+    "CMTDetI.decoder.2": {
+      "aten.addmm": 1736294400,
+      "aten._scaled_dot_product_efficient_attention": 92160000
+    },
+    "CMTDetI.decoder.2.reference_embed.0": {
+      "aten.addmm": 1228800
+    },
+    "CMTDetI.decoder.2.reference_embed": {
+      "aten.addmm": 79872000
+    },
+    "CMTDetI.decoder.2.reference_embed.2": {
+      "aten.addmm": 78643200
+    },
+    "CMTDetI.decoder.2.self_attn": {
+      "aten.addmm": 157286400,
+      "aten._scaled_dot_product_efficient_attention": 92160000
+    },
+    "CMTDetI.decoder.2.cross": {
+      "aten.addmm": 1184563200
+    },
+    "CMTDetI.decoder.2.cross.value": {
+      "aten.addmm": 1101004800
+    },
+    "CMTDetI.decoder.2.cross.offsets": {
+      "aten.addmm": 29491200
+    },
+    "CMTDetI.decoder.2.cross.weights": {
+      "aten.addmm": 14745600
+    },
+    "CMTDetI.decoder.2.cross.output": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.decoder.2.ffn": {
+      "aten.addmm": 314572800
+    },
+    "CMTDetI.decoder.2.ffn.0": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.decoder.2.ffn.2": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.temp_heads.2.0": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.temp_heads.2": {
+      "aten.addmm": 39936000
+    },
+    "CMTDetI.temp_heads.2.2": {
+      "aten.addmm": 614400
+    },
+    "CMTDetI.integrals.2": {
+      "aten.addmm": 31948800,
+      "aten.bmm": 180607968
+    },
+    "CMTDetI.integrals.2.query_key": {
+      "aten.addmm": 19660800
+    },
+    "CMTDetI.integrals.2.support_mix": {
+      "aten.addmm": 1843200
+    },
+    "CMTDetI.integrals.2.head_mix": {
+      "aten.addmm": 614400
+    },
+    "CMTDetI.integrals.2.value_out": {
+      "aten.addmm": 9830400
+    },
+    "CMTDetI.updates.2.geometry.0": {
+      "aten.addmm": 1228800
+    },
+    "CMTDetI.updates.2.geometry": {
+      "aten.addmm": 40550400
+    },
+    "CMTDetI.updates.2": {
+      "aten.addmm": 475238400
+    },
+    "CMTDetI.updates.2.geometry.2": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.updates.2.ffn.0": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.updates.2.ffn": {
+      "aten.addmm": 314572800
+    },
+    "CMTDetI.updates.2.ffn.2": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.updates.2.gate": {
+      "aten.addmm": 40857600
+    },
+    "CMTDetI.updates.2.gate.0": {
+      "aten.addmm": 40550400
+    },
+    "CMTDetI.updates.2.gate.2": {
+      "aten.addmm": 307200
+    },
+    "CMTDetI.updates.2.residual": {
+      "aten.addmm": 39628800
+    },
+    "CMTDetI.updates.2.residual.0": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.updates.2.residual.2": {
+      "aten.addmm": 307200
+    },
+    "CMTDetI.updates.2.size": {
+      "aten.addmm": 39628800
+    },
+    "CMTDetI.updates.2.size.0": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.updates.2.size.2": {
+      "aten.addmm": 307200
+    },
+    "CMTDetI.decoder.3": {
+      "aten.addmm": 1736294400,
+      "aten._scaled_dot_product_efficient_attention": 92160000
+    },
+    "CMTDetI.decoder.3.reference_embed": {
+      "aten.addmm": 79872000
+    },
+    "CMTDetI.decoder.3.reference_embed.0": {
+      "aten.addmm": 1228800
+    },
+    "CMTDetI.decoder.3.reference_embed.2": {
+      "aten.addmm": 78643200
+    },
+    "CMTDetI.decoder.3.self_attn": {
+      "aten.addmm": 157286400,
+      "aten._scaled_dot_product_efficient_attention": 92160000
+    },
+    "CMTDetI.decoder.3.cross": {
+      "aten.addmm": 1184563200
+    },
+    "CMTDetI.decoder.3.cross.value": {
+      "aten.addmm": 1101004800
+    },
+    "CMTDetI.decoder.3.cross.offsets": {
+      "aten.addmm": 29491200
+    },
+    "CMTDetI.decoder.3.cross.weights": {
+      "aten.addmm": 14745600
+    },
+    "CMTDetI.decoder.3.cross.output": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.decoder.3.ffn.0": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.decoder.3.ffn": {
+      "aten.addmm": 314572800
+    },
+    "CMTDetI.decoder.3.ffn.2": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.temp_heads.3.0": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.temp_heads.3": {
+      "aten.addmm": 39936000
+    },
+    "CMTDetI.temp_heads.3.2": {
+      "aten.addmm": 614400
+    },
+    "CMTDetI.integrals.3.query_key": {
+      "aten.addmm": 19660800
+    },
+    "CMTDetI.integrals.3": {
+      "aten.addmm": 31948800,
+      "aten.bmm": 180607968
+    },
+    "CMTDetI.integrals.3.support_mix": {
+      "aten.addmm": 1843200
+    },
+    "CMTDetI.integrals.3.head_mix": {
+      "aten.addmm": 614400
+    },
+    "CMTDetI.integrals.3.value_out": {
+      "aten.addmm": 9830400
+    },
+    "CMTDetI.updates.3": {
+      "aten.addmm": 475238400
+    },
+    "CMTDetI.updates.3.geometry": {
+      "aten.addmm": 40550400
+    },
+    "CMTDetI.updates.3.geometry.0": {
+      "aten.addmm": 1228800
+    },
+    "CMTDetI.updates.3.geometry.2": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.updates.3.ffn.0": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.updates.3.ffn": {
+      "aten.addmm": 314572800
+    },
+    "CMTDetI.updates.3.ffn.2": {
+      "aten.addmm": 157286400
+    },
+    "CMTDetI.updates.3.gate.0": {
+      "aten.addmm": 40550400
+    },
+    "CMTDetI.updates.3.gate": {
+      "aten.addmm": 40857600
+    },
+    "CMTDetI.updates.3.gate.2": {
+      "aten.addmm": 307200
+    },
+    "CMTDetI.updates.3.residual": {
+      "aten.addmm": 39628800
+    },
+    "CMTDetI.updates.3.residual.0": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.updates.3.residual.2": {
+      "aten.addmm": 307200
+    },
+    "CMTDetI.updates.3.size": {
+      "aten.addmm": 39628800
+    },
+    "CMTDetI.updates.3.size.0": {
+      "aten.addmm": 39321600
+    },
+    "CMTDetI.updates.3.size.2": {
+      "aten.addmm": 307200
+    }
+  },
+  "flop_convention": "PyTorch FlopCounterMode, multiply-add=2; unsupported elementwise/grid/gather/reductions omitted",
+  "status": "ok",
+  "peak_allocated_bytes": 400334336,
+  "peak_reserved_bytes": 549453824
+}

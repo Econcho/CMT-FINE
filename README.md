@@ -2,6 +2,8 @@
 
 English | [简体中文](README_cn.md) | [日本語](README_ja.md) | [English Blog](src/zoo/dfine/blog.md) | [中文博客](src/zoo/dfine/blog_cn.md)
 
+> CMT-FINE论文写作资料：[docs/README.md](docs/README.md)。该索引包含论文最小主线、CMT数学方案、相位稳定性背景、核验资产和消融实验参考。
+
 <h2 align="center">
   D-FINE: Redefine Regression Task of DETRs as Fine&#8209;grained&nbsp;Distribution&nbsp;Refinement
 </h2>

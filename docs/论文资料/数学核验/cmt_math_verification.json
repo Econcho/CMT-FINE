@@ -1,0 +1,155 @@
+{
+  "seed": 20260913,
+  "dtype": "float64",
+  "numpy": "2.0.2",
+  "scope": "synthetic algebra only; no detector, training, or real-data evaluation",
+  "hierarchical_merge_max_abs_error": 1.1368683772161603e-13,
+  "origin_composition_max_abs_error": 5.820766091346741e-11,
+  "full_support_translation_49_shifts": {
+    "max_centroid_error_px": 1.7763568394002505e-14,
+    "max_covariance_error_px2": 7.958078640513122e-13,
+    "max_mass_error": 7.105427357601002e-15
+  },
+  "piecewise_constant_readout_max_abs_error": 1.7053025658242404e-13,
+  "smooth_kernel_bound_checks": {
+    "cases": 30,
+    "informative_centroid_bounds": 30,
+    "max_mass_error_over_bound": 0.039016122476553644,
+    "max_first_moment_error_over_bound": 0.04178450791852296,
+    "cases_with_centroid_bound": [
+      {
+        "centroid_error_px": 0.029913435836585567,
+        "upper_bound_px": 1.3562984501552269
+      },
+      {
+        "centroid_error_px": 0.005867117375955938,
+        "upper_bound_px": 0.531321863027828
+      },
+      {
+        "centroid_error_px": 0.014563490164297237,
+        "upper_bound_px": 1.2293512196142067
+      },
+      {
+        "centroid_error_px": 0.008130224535183632,
+        "upper_bound_px": 0.6981533965321474
+      },
+      {
+        "centroid_error_px": 0.01643342607630179,
+        "upper_bound_px": 0.8993332546034251
+      },
+      {
+        "centroid_error_px": 0.017569609580245452,
+        "upper_bound_px": 0.9409514736083326
+      },
+      {
+        "centroid_error_px": 0.028083471352305937,
+        "upper_bound_px": 1.680751101763971
+      },
+      {
+        "centroid_error_px": 0.016240498834952807,
+        "upper_bound_px": 1.015441022951003
+      },
+      {
+        "centroid_error_px": 0.015005600510384643,
+        "upper_bound_px": 1.4004395837825063
+      },
+      {
+        "centroid_error_px": 0.019523884061312533,
+        "upper_bound_px": 1.5294454335774506
+      },
+      {
+        "centroid_error_px": 0.007916894040641127,
+        "upper_bound_px": 0.9103013759990255
+      },
+      {
+        "centroid_error_px": 0.009669870665091233,
+        "upper_bound_px": 0.8563289518539693
+      },
+      {
+        "centroid_error_px": 0.008505247775583069,
+        "upper_bound_px": 0.996930913725383
+      },
+      {
+        "centroid_error_px": 0.009354894068616353,
+        "upper_bound_px": 0.7310988105951165
+      },
+      {
+        "centroid_error_px": 0.017638849649699515,
+        "upper_bound_px": 1.0136530369460328
+      },
+      {
+        "centroid_error_px": 0.020198372078286876,
+        "upper_bound_px": 1.154660745638829
+      },
+      {
+        "centroid_error_px": 0.025807131335275825,
+        "upper_bound_px": 1.591074168276256
+      },
+      {
+        "centroid_error_px": 0.021635277746400016,
+        "upper_bound_px": 1.8389691272212003
+      },
+      {
+        "centroid_error_px": 0.01716293283953745,
+        "upper_bound_px": 1.083685896494528
+      },
+      {
+        "centroid_error_px": 0.01908296109456021,
+        "upper_bound_px": 1.2117422136497331
+      },
+      {
+        "centroid_error_px": 0.01898791282416147,
+        "upper_bound_px": 1.1003320305996516
+      },
+      {
+        "centroid_error_px": 0.030433100857616878,
+        "upper_bound_px": 1.5059580817234441
+      },
+      {
+        "centroid_error_px": 0.00977288972064266,
+        "upper_bound_px": 0.8718180214497818
+      },
+      {
+        "centroid_error_px": 0.014529852928039821,
+        "upper_bound_px": 1.0307379486735202
+      },
+      {
+        "centroid_error_px": 0.009711275990608784,
+        "upper_bound_px": 1.0405224601122687
+      },
+      {
+        "centroid_error_px": 0.009032899597660354,
+        "upper_bound_px": 0.7962309148086167
+      },
+      {
+        "centroid_error_px": 0.006272068258969273,
+        "upper_bound_px": 0.5971472637560636
+      },
+      {
+        "centroid_error_px": 0.007725445284745997,
+        "upper_bound_px": 0.6898132498040299
+      },
+      {
+        "centroid_error_px": 0.012477026886729265,
+        "upper_bound_px": 0.953310066952761
+      },
+      {
+        "centroid_error_px": 0.011635679735373442,
+        "upper_bound_px": 1.101658540731208
+      }
+    ]
+  },
+  "six_moment_encoding_ranks": {
+    "1": 1,
+    "2": 4,
+    "4": 6,
+    "8": 6
+  },
+  "stride2_inverse_max_abs_error": 1.1102230246251565e-16,
+  "stride4_information_loss_counterexample": {
+    "different_positive_evidence_l1": 3.0458055090966454,
+    "six_moment_max_abs_difference": 4.440892098500626e-16
+  },
+  "background_bias_identity_max_error": 0.0,
+  "status": "PASS"
+}

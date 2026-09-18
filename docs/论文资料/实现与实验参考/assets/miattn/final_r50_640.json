@@ -1,0 +1,227 @@
+{
+  "task": "train_step",
+  "config": {
+    "model": {
+      "architecture": "cmtdet_i",
+      "backbone": "resnet50",
+      "hgnet_use_lab": true,
+      "hgnet_freeze_norm": true,
+      "resnet_freeze_norm": false,
+      "classes": 1,
+      "input_size": 640,
+      "dims": [
+        128,
+        256,
+        512,
+        1024
+      ],
+      "depths": [
+        3,
+        3,
+        27,
+        3
+      ],
+      "hidden": 256,
+      "heads": 8,
+      "points": 4,
+      "ffn": 1024,
+      "encoder_layers": 1,
+      "decoder_layers": 4,
+      "queries": 300,
+      "attention_chunk": 1024,
+      "attention_backend": "pytorch",
+      "hoist_attention_maps": true,
+      "checkpoint_encoder": true,
+      "detach_references": true,
+      "denoising": 100,
+      "use_p2": false,
+      "dn_box_noise": 0.4,
+      "dn_label_noise": 0.5
+    },
+    "cmt": {
+      "mode": "full",
+      "width": 16,
+      "dilations": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "order": 2,
+      "compression": "moments",
+      "stride": 4,
+      "fusion_init": 0.001,
+      "support_factors": [
+        0.75,
+        1.5,
+        3.0
+      ],
+      "support_min": 4.0,
+      "support_max": 96.0,
+      "query_chunk": 64,
+      "mass_epsilon": 1e-06,
+      "gate": true,
+      "residual": true,
+      "residual_fraction": 0.1,
+      "bounds": false,
+      "reader_backend": "bucket",
+      "pair_product_backend": "explicit"
+    },
+    "train": {
+      "epochs": 100,
+      "batch_size": 2,
+      "accumulation": 8,
+      "workers": 4,
+      "lr": 0.0002,
+      "backbone_lr": 2e-05,
+      "weight_decay": 0.0001,
+      "warmup_epochs": 1,
+      "grad_clip": 0.1,
+      "amp": true,
+      "amp_init_scale": 128.0,
+      "seed": 42,
+      "val_interval": 1,
+      "patience": 20,
+      "min_delta": 0.0,
+      "monitor": "AP50_95",
+      "progress": true,
+      "horizontal_flip": 0.5,
+      "heat_weight": 1.0,
+      "centroid_weight": 0.0,
+      "gate_weight": 0.0,
+      "residual_weight": 0.0,
+      "temporary_weight": 0.0,
+      "class_weight": 1.0,
+      "box_l1_weight": 5.0,
+      "giou_weight": 2.0,
+      "match_class": 2.0,
+      "match_box": 5.0,
+      "match_giou": 2.0,
+      "auxiliary_weight": 1.0,
+      "denoising_weight": 1.0,
+      "reuse_assignments": true,
+      "full_val_interval": 5,
+      "prefetch_factor": 2
+    },
+    "eval": {
+      "tiny_area_space": "input",
+      "batch_size": 2,
+      "max_detections": 300,
+      "score_threshold": 0.0,
+      "save_match_details": true,
+      "save_raw_predictions": true,
+      "amp": true,
+      "light_amp": true
+    },
+    "logging": {
+      "interval": 1
+    },
+    "mia": {
+      "evidence_fp32": true,
+      "heads": 4,
+      "key_dim": 32,
+      "value_dim": 16,
+      "local_dim": 64,
+      "moment_queries": 0.5,
+      "proposal_radius": 2,
+      "proposal_loss_weight": 1.0,
+      "content_weights": true,
+      "shared_weights": true,
+      "geometry_to_content": true,
+      "logit_clip": 8.0,
+      "checkpoint_readout": false,
+      "checkpoint_evidence": true,
+      "cell_budget": 65536,
+      "integral_layers": "all",
+      "reader_backend": "bucket"
+    }
+  },
+  "torch": "2.7.1+cu128",
+  "python": "3.11.16",
+  "device": "cuda",
+  "gpu": "NVIDIA GeForce RTX 3060 Laptop GPU",
+  "batch": 1,
+  "amp": true,
+  "warmup": 2,
+  "steps": 3,
+  "weights": "random initialization",
+  "scope": "synthetic train step; validation is optional and bounded",
+  "parameters": 35040809,
+  "timings": [
+    {
+      "data_transfer_ms": 3.8507000426761806,
+      "forward_ms": 200.10190003085881,
+      "loss_ms": 25.731800007633865,
+      "backward_ms": 325.23960003163666,
+      "optimizer_ms": 21.426199993584305,
+      "step_ms": 576.3502001063898,
+      "amp_skipped_update": 0
+    },
+    {
+      "data_transfer_ms": 3.501300001516938,
+      "forward_ms": 201.86349999858066,
+      "loss_ms": 22.351899999193847,
+      "backward_ms": 324.9902999959886,
+      "optimizer_ms": 20.8744999836199,
+      "step_ms": 573.5814999789,
+      "amp_skipped_update": 0
+    },
+    {
+      "data_transfer_ms": 2.829600009135902,
+      "forward_ms": 217.3901000060141,
+      "loss_ms": 22.9976000264287,
+      "backward_ms": 332.7182999928482,
+      "optimizer_ms": 20.190799958072603,
+      "logging_ms": 0.6047000060789287,
+      "step_ms": 596.7310999985784,
+      "amp_skipped_update": 0
+    }
+  ],
+  "mean": {
+    "data_transfer_ms": 3.3938666844430068,
+    "forward_ms": 206.4518333451512,
+    "loss_ms": 23.693766677752137,
+    "backward_ms": 327.64940000682446,
+    "optimizer_ms": 20.830499978425603,
+    "step_ms": 582.2209333612894,
+    "amp_skipped_update": 0.0
+  },
+  "images_per_second": 1.7175610540603206,
+  "forward_stages": {
+    "backbone": {
+      "calls": 1,
+      "host_ms": 8.4274000255391,
+      "cuda_timeline_ms": 12.223039627075195
+    },
+    "encoder": {
+      "calls": 1,
+      "host_ms": 18.40320002520457,
+      "cuda_timeline_ms": 15.28217601776123
+    },
+    "evidence_and_encode": {
+      "calls": 1,
+      "host_ms": 35.88290000334382,
+      "cuda_timeline_ms": 35.30752182006836
+    },
+    "decoder": {
+      "calls": 4,
+      "host_ms": 10.083400004077703,
+      "cuda_timeline_ms": 9.681919813156128
+    },
+    "moment_integral": {
+      "calls": 4,
+      "host_ms": 39.918299997225404,
+      "cuda_timeline_ms": 40.217599868774414
+    },
+    "integral_update": {
+      "calls": 4,
+      "host_ms": 5.624599987640977,
+      "cuda_timeline_ms": 6.318079829216003
+    }
+  },
+  "validation": null,
+  "peak_memory_mb": {
+    "allocated": 3360.12646484375,
+    "reserved": 3438.0
+  }
+}
